@@ -12,13 +12,14 @@ modelo = Model()
 # M = 21
 # Tb es el límite superior de T
 Tb = 14
-URL_C = "Parametros/C.csv"
-URL_B_U_M = "Parametros/B,U,M.csv"
-URL_D_H_L = "Parametros/D,H,L.csv"
-URL_F = "Parametros/F.csv"
-URL_N = "Parametros/N.csv"
-URL_Q = "Parametros/Q.csv"
-URL_F = "Parametros/F.csv"
+parametros = "Parametros_2"
+URL_C = f"{parametros}/C.csv"
+URL_B_U_M = f"{parametros}/B,U,M.csv"
+URL_D_H_L = f"{parametros}/D,H,L.csv"
+URL_F = f"{parametros}/F.csv"
+URL_N = f"{parametros}/N.csv"
+URL_Q = f"{parametros}/Q.csv"
+URL_F = f"{parametros}/F.csv"
 
 ''' Conjuntos '''
 
