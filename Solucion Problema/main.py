@@ -24,7 +24,7 @@ URL_F = f"{parametros}/F.csv"
 ''' Conjuntos'''
 
 # Piezas
-Pb = 2
+Pb = 7
 P = tuple(i for i in range(1, Pb + 1))
 P2 = P
 # Periodos
