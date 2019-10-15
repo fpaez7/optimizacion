@@ -36,11 +36,11 @@ T2 = T
 # Enfermedades
 with open(URL_B_U_M, "r") as f:
     # E = dict()
-    E = []
+    E = set()
     dict_reader = DictReader(f)
     for row in dict_reader:
         # E[row["e"]] = row["NAME"]
-        E.append(int(row["e"]))
+        E.add(int(row["e"]))
     largo_e = len(E)
 
 ''' Parámetros '''
@@ -53,7 +53,7 @@ with open(URL_D_H_L, "r") as f:
     for row in dict_reader:
         d[(int(row["e"]), int(row["t"]))] = int(row["D"])
     for e in E:
-        for t in T:
+        for t in range(0, Tb + 1):
             if (e,t) not in d.keys():
                 d[(e, t)] = 0
 # Cantidad de pacientes con enfermedad e ∈ E que ingresan por consulta
@@ -64,7 +64,7 @@ with open(URL_D_H_L, "r") as f:
     for row in dict_reader:
         h[(int(row["e"]), int(row["t"]))] = int(row["H"])
     for e in E:
-        for t in T:
+        for t in range(0, Tb + 1):
             if (e,t) not in h.keys():
                 h[(e, t)] = 0
 # Costo monetario asociado a trasladar un paciente con enfermedad e ∈ E desde
@@ -87,7 +87,7 @@ with open(URL_D_H_L, "r") as f:
     for row in dict_reader:
         l[(int(row["e"]), int(row["t"]))] = int(row["L"])
     for e in E:
-        for t in T:
+        for t in range(0, Tb + 1):
             if (e,t) not in l.keys():
                 l[(e, t)] = 0
 # Número de días esperados de internación de un paciente con enfermedad e ∈ E.
@@ -139,7 +139,7 @@ with open(URL_N, "r") as f:
     for row in dict_reader:
         n[int(row["i"]), int(row["t"])] = int(row["N"])
     for i in P:
-        for t in T:
+        for t in range(0, Tb + 1):
             if (i,t) not in n.keys():
                 n[(i, t)] = 0
 # Cantidad de pacientes con enfermedad e ∈ E provenientes de consulta que
@@ -148,7 +148,7 @@ with open(URL_B_U_M, "r") as f:
     u = dict()
     dict_reader = DictReader(f)
     for row in dict_reader:
-        u[int(row["e"])] = int(row["U_2"])
+        u[int(row["e"])] = int(row["U"])
     for e in E:
         if e not in u.keys():
                 u[e] = 0
@@ -182,7 +182,7 @@ x = modelo.addVars(E, P, T, T2, vtype=GRB.INTEGER, name="x")
 w = modelo.addVars(E, P, T, T2, vtype=GRB.INTEGER, name="w")
 # Cantidad de pacientes con enfermedad e ∈ E internados en la pieza i ∈ P el día
 # t ∈ Γ por urgencia.
-k = modelo.addVars(E, P, T, vtype=GRB.INTEGER, name="u")
+k = modelo.addVars(E, P, T, vtype=GRB.INTEGER, name="k")
 # Cantidad de pacientes con patología e ∈ E internados en la pieza i ∈ P el día
 # t ∈ Γ por no urgencia que esperan a ser internados desde el día d ∈ Γ.
 nu = modelo.addVars(E, P, T, T2, vtype=GRB.INTEGER, name="nu")
@@ -210,7 +210,8 @@ modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t
 modelo.addConstrs((quicksum(w[e, i, t, d] for i in P) == quicksum(y[e, i, t + b[e], d] for i in P) for e in E for d in T2 for t in T if ((t <= (Tb - b[e])) and (d <= t))), name="c2")
 
 # La gente que ingresa es la suma de los ingresados por urgencia con los de consulta
-modelo.addConstrs((w[e, i, t, t] == k[e, i, t] + quicksum(nu[e, i, t, d] for d in T2 if d < t) for e in E for i in P for t in T), name="c3")
+modelo.addConstrs((w[e, i, t, t] == k[e, i, t] + quicksum(nu[e, i, t, b] for b in T2 if b <= t) for e in E for i in P for t in T), name="c3")
+# modelo.addConstrs((w[e, i, t, t] == k[e, i, t] for e in E for i in P for t in T), name="c3")
 
 # Nunca se sobrepasa la capacidad de piezas
 modelo.addConstrs((quicksum(x[e, i, t, d] for e in E for d in T) <= q[i] for i in P for t in T), name="c4")
@@ -235,7 +236,7 @@ modelo.addConstrs((quicksum(x[e, i, t, d] for e in E for d in T) <= M * v[i, t] 
 
 # Nadie se va el día que no le corresponde
 # TODO revisar el if y orden de fors
-modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in T2 if t != (d - b[e])), name="c9")
+modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in T2 if t != (d + b[e])), name="c9")
 
 # Restriccion trivial
 modelo.addConstrs((w[e, i, t, d] == 0 for i in P for e in E for t in T for d in T2 if d > t), name= "c10")
@@ -248,14 +249,15 @@ modelo.addConstrs((w[e, i, t, d] == 0 for i in P for e in E for t in T for d in 
 # # Inicialización de las Variables
 modelo.addConstrs((x[e, i, 0, d] == 0 for e in E for i in P for d in T), name="c11")
 
-# R paez 2. Nadie sale el dia q no le corresponde 2.
-modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in T if t != (d + b[e])), name="c12")
+#
 
 
+# Restriccion q se deberia cumplir pero no lo esta haceindo. ACEPTAR A TODA LA URGENCIA
+# modelo.addConstrs(quicksum(k[e,i,t] for i in P) == d[e,t] for e in E for t in T)
 ''' Función Objetivo '''
 # modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(v[i, t] * n[i, t] for i in P for t in T) + quicksum(c[e, i, j] * z[e, i, j, t, d] for e in E for i in P for j in P2 for t in T for d in T2) + quicksum(w[e, i, t] * f[e, i] for e in E for t in T for i in P), GRB.MINIMIZE)
-modelo.setObjective(quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in range(1, len(T)) for d in T), GRB.MINIMIZE)
-
+# modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in range(1, len(T)) for d in T), GRB.MINIMIZE)
+modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P), GRB.MINIMIZE)
 
 ''' Solucion '''
 modelo.optimize()
