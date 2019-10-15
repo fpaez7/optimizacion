@@ -203,11 +203,11 @@ modelo.update()
 ''' Restricciones '''
 
 # Flujo común
-modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t, d] - z[e, i, j, t, d] for j in P2) + w[e, i, t, d] - y[e, i, t, d] for e in E for i in P for d in T for t in range(1, Tb) if (d < t)), name="c1")
+modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t, d] - z[e, i, j, t, d] for j in P2) + w[e, i, t, t] - y[e, i, t, d] for e in E for i in P for d in range(1, Tb + 1) for t in range(1, Tb + 1) if (d < t)), name="c1")
 
 # Todos se van el día que les corresponde
 # TODO revisar si aqui hay un error, si no el constraint hay que hacerlo con addConstr
-modelo.addConstrs((quicksum(w[e, i, t, d] for i in P) == quicksum(y[e, i, t + b[e], d] for i in P) for e in E for d in T2 for t in T if ((t <= (Tb - b[e])) and (d <= t))), name="c2")
+modelo.addConstrs((quicksum(w[e, i, t, t] for i in P) == quicksum(y[e, i, t + b[e], t] for i in P) for e in E for t in T if ((t <= (Tb - b[e])))), name="c2")
 
 # La gente que ingresa es la suma de los ingresados por urgencia con los de consulta
 modelo.addConstrs((w[e, i, t, t] == k[e, i, t] + quicksum(nu[e, i, t, b] for b in T2 if b <= t) for e in E for i in P for t in T), name="c3")
@@ -250,6 +250,7 @@ modelo.addConstrs((w[e, i, t, d] == 0 for i in P for e in E for t in T for d in 
 modelo.addConstrs((x[e, i, 0, d] == 0 for e in E for i in P for d in T), name="c11")
 
 #
+modelo.addConstrs((quicksum(k[e, i, t] for i in P) <= d[e, t] for e in E for t in range(1, Tb + 1)))
 
 
 # Restriccion q se deberia cumplir pero no lo esta haceindo. ACEPTAR A TODA LA URGENCIA
