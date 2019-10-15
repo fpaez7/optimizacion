@@ -11,7 +11,7 @@ modelo = Model()
 # M es M >> 0
 # M = 21
 # Tb es el límite superior de T
-Tb = 14
+# Tb = 14
 parametros = "Parametros_2"
 URL_C = f"{parametros}/C.csv"
 URL_B_U_M = f"{parametros}/B,U,M.csv"
@@ -21,14 +21,17 @@ URL_N = f"{parametros}/N.csv"
 URL_Q = f"{parametros}/Q.csv"
 URL_F = f"{parametros}/F.csv"
 
-''' Conjuntos '''
+''' Conjuntos'''
 
 # Piezas
-P = tuple(i for i in range(1, 8))
+Pb = 2
+P = tuple(i for i in range(1, Pb + 1))
 P2 = P
 # Periodos
+Tb = 4
 T = tuple(i for i in range(0, Tb + 1))
 T2 = T
+
 # Enfermedades
 with open(URL_B_U_M, "r") as f:
     # E = dict()
@@ -37,6 +40,7 @@ with open(URL_B_U_M, "r") as f:
     for row in dict_reader:
         # E[row["e"]] = row["NAME"]
         E.append(int(row["e"]))
+    largo_e = len(E)
 
 ''' Parámetros '''
 
@@ -158,10 +162,13 @@ with open(URL_F, "r") as file:
             if (e,i) not in f.keys():
                 f[(e, i)] = 0
 
-''' M >> 0 '''
+''' CONSTANTES '''
 # Max({3*(8-i)}) donde i es el indice de la pieza
 # 3*(8-i) es como calculamos la capacidad de la pieza i
-M = 21
+# M = 21
+M = 100
+
+
 
 
 ''' Variables '''
@@ -171,12 +178,12 @@ M = 21
 x = modelo.addVars(E, P, T, T2, vtype=GRB.INTEGER, name="x")
 # Cantidad de pacientes con enfermedad e ∈ E internados en la pieza i ∈ P el
 # día t ∈ Γ.
-w = modelo.addVars(E, P, T, vtype=GRB.INTEGER, name="w")
+w = modelo.addVars(E, P, T, T2, vtype=GRB.INTEGER, name="w")
 # Cantidad de pacientes con enfermedad e ∈ E internados en la pieza i ∈ P el día
 # t ∈ Γ por urgencia.
 k = modelo.addVars(E, P, T, vtype=GRB.INTEGER, name="u")
 # Cantidad de pacientes con patología e ∈ E internados en la pieza i ∈ P el día
-# t ∈ Γ por no urgencia que esperan a ser internados desde el día b ∈ Γ.
+# t ∈ Γ por no urgencia que esperan a ser internados desde el día d ∈ Γ.
 nu = modelo.addVars(E, P, T, T2, vtype=GRB.INTEGER, name="nu")
 # Cantidad de pacientes ingresados el día d ∈ Γ con la enfermedad e ∈ E movidos
 # desde la pieza i ∈ P a la pieza j ∈ P el día t ∈ Γ.
@@ -190,20 +197,21 @@ v = modelo.addVars(P, T, vtype=GRB.BINARY, name="v")
 modelo.update()
 
 ''' Función Objetivo '''
-modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(v[i, t] * n[i, t] for i in P for t in T) + quicksum(c[e, i, j] * z[e, i, j, t, d] for e in E for i in P for j in P2 for t in T for d in T2) + quicksum(w[e, i, t] * f[e, i] for e in E for t in T for i in P), GRB.MINIMIZE)
+# modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(v[i, t] * n[i, t] for i in P for t in T) + quicksum(c[e, i, j] * z[e, i, j, t, d] for e in E for i in P for j in P2 for t in T for d in T2) + quicksum(w[e, i, t] * f[e, i] for e in E for t in T for i in P), GRB.MINIMIZE)
+modelo.setObjective(quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in T for d in T2), GRB.MINIMIZE)
 
 
 ''' Restricciones '''
 
 # Flujo común
-modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t, d] - z[e, i, j, t, d] for j in P2) for e in E for i in P for d in P2 for t in range(1, Tb) if (d <= t)), name="c1")
+modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t, d] - z[e, i, j, t, d] for j in P2) + w[e, i, t, d] - y[e, i, t, d] for e in E for i in P for d in P2 for t in range(1, Tb) if (d < t)), name="c1")
 
 # Todos se van el día que les corresponde
 # TODO revisar si aqui hay un error, si no el constraint hay que hacerlo con addConstr
-modelo.addConstrs((quicksum(w[e, i, t] for i in P) == quicksum(y[e, i, t, t + b[e]] for i in P) for e in E for t in T if t<= (Tb - b[e])), name="c2")
+modelo.addConstrs((quicksum(w[e, i, t, d] for i in P) == quicksum(y[e, i, t + b[e], t] for i in P) for e in E for d in T2 for t in T if ((t <= (Tb - b[e])) and (d <= t))), name="c2")
 
 # La gente que ingresa es la suma de los ingresados por urgencia con los de consulta
-modelo.addConstrs((w[e, i, t] == k[e, i, t] + quicksum(nu[e, i, t, b] for b in P2) for e in E for i in P for t in T), name="c3")
+modelo.addConstrs((w[e, i, t, t] == k[e, i, t] + quicksum(nu[e, i, t, d] for d in T2 if d < t) for e in E for i in P for t in T), name="c3")
 
 # Nunca se sobrepasa la capacidad de piezas
 modelo.addConstrs((quicksum(x[e, i, t, d] for e in E for d in T) <= q[i] for i in P for t in T), name="c4")
@@ -224,11 +232,17 @@ modelo.addConstrs((quicksum(nu[e, i, t, b] for t in range(b, b + m[e] + 1)) == h
 # Atender a todos los pacientes no urgentes y a los que estaban esperando antes
 # de la implementación del sistema
 # TODO revisar el 1
-modelo.addConstrs((quicksum(nu[e, i, t, 1] for t in range(1, m[e] + 1 + 1) for i in P) == h[e, 1] + u[e] for e in E), name="c8")
+# modelo.addConstrs((quicksum(nu[e, i, t, 1] for t in range(1, m[e] + 1 + 1) for i in P) == h[e, 1] + u[e] for e in E), name="c8")
 
 # Nadie se va el día que no le corresponde
 # TODO revisar el if y orden de fors
 modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in T2 if t != (d - b[e])), name="c9")
+
+#
+
+# ''' NUEVO '''
+# modelo.addConstrs((quicksum(nu[e, i, t, b] for t in range(b, b + m[e] + 1)) == h[e, b] + d[e, b] for e in E for b in T if ((2 <= b) and (b <= Tb - m[e]))), name= "c7")
+
 
 # # Inicialización de las Variables
 # modelo.addConstrs((x[e, i, 0, d] == 0 for e in E for i in P for d in T), name="c10")
@@ -238,3 +252,4 @@ modelo.optimize()
 
 # Mostrar los valores de las soluciones
 modelo.printAttr("X")
+# print(maximo_dia)
