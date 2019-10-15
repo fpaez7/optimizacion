@@ -31,6 +31,7 @@ P2 = P
 Tb = 4
 T = tuple(i for i in range(0, Tb + 1))
 T2 = T
+# T0 = tuple(i for i in range(0, Tb + 1))
 
 # Enfermedades
 with open(URL_B_U_M, "r") as f:
@@ -196,19 +197,17 @@ v = modelo.addVars(P, T, vtype=GRB.BINARY, name="v")
 
 modelo.update()
 
-''' Función Objetivo '''
-# modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(v[i, t] * n[i, t] for i in P for t in T) + quicksum(c[e, i, j] * z[e, i, j, t, d] for e in E for i in P for j in P2 for t in T for d in T2) + quicksum(w[e, i, t] * f[e, i] for e in E for t in T for i in P), GRB.MINIMIZE)
-modelo.setObjective(quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in T for d in T2), GRB.MINIMIZE)
+
 
 
 ''' Restricciones '''
 
 # Flujo común
-modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t, d] - z[e, i, j, t, d] for j in P2) + w[e, i, t, d] - y[e, i, t, d] for e in E for i in P for d in P2 for t in range(1, Tb) if (d < t)), name="c1")
+modelo.addConstrs((x[e, i, t, d] == x[e, i , (t - 1), d] + quicksum(z[e, j, i, t, d] - z[e, i, j, t, d] for j in P2) + w[e, i, t, d] - y[e, i, t, d] for e in E for i in P for d in T for t in range(1, Tb) if (d < t)), name="c1")
 
 # Todos se van el día que les corresponde
 # TODO revisar si aqui hay un error, si no el constraint hay que hacerlo con addConstr
-modelo.addConstrs((quicksum(w[e, i, t, d] for i in P) == quicksum(y[e, i, t + b[e], t] for i in P) for e in E for d in T2 for t in T if ((t <= (Tb - b[e])) and (d <= t))), name="c2")
+modelo.addConstrs((quicksum(w[e, i, t, d] for i in P) == quicksum(y[e, i, t + b[e], d] for i in P) for e in E for d in T2 for t in T if ((t <= (Tb - b[e])) and (d <= t))), name="c2")
 
 # La gente que ingresa es la suma de los ingresados por urgencia con los de consulta
 modelo.addConstrs((w[e, i, t, t] == k[e, i, t] + quicksum(nu[e, i, t, d] for d in T2 if d < t) for e in E for i in P for t in T), name="c3")
@@ -227,7 +226,7 @@ modelo.addConstrs((quicksum(x[e, i, t, d] for e in E for d in T) <= M * v[i, t] 
 # Atender a todos los no urgentes(desde el día 2 en adelante)
 # TODO revisar que la sumatoria funcione
 # TODO revisar que el +1 de la sumatoria este bien, y que funcione el range
-modelo.addConstrs((quicksum(nu[e, i, t, b] for t in range(b, b + m[e] + 1)) == h[e, b] for e in E for b in T if ((2 <= b) and (b <= Tb - m[e]))), name= "c7")
+# modelo.addConstrs((quicksum(nu[e, i, t, b] for t in range(b, b + m[e] + 1)) == h[e, b] for e in E for b in T if ((2 <= b) and (b <= Tb - m[e]))), name= "c7")
 
 # Atender a todos los pacientes no urgentes y a los que estaban esperando antes
 # de la implementación del sistema
@@ -238,6 +237,8 @@ modelo.addConstrs((quicksum(nu[e, i, t, b] for t in range(b, b + m[e] + 1)) == h
 # TODO revisar el if y orden de fors
 modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in T2 if t != (d - b[e])), name="c9")
 
+# Restriccion trivial
+modelo.addConstrs((w[e, i, t, d] == 0 for i in P for e in E for t in T for d in T2 if d > t), name= "c10")
 #
 
 # ''' NUEVO '''
@@ -245,7 +246,16 @@ modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in 
 
 
 # # Inicialización de las Variables
-# modelo.addConstrs((x[e, i, 0, d] == 0 for e in E for i in P for d in T), name="c10")
+modelo.addConstrs((x[e, i, 0, d] == 0 for e in E for i in P for d in T), name="c11")
+
+# R paez 2. Nadie sale el dia q no le corresponde 2.
+modelo.addConstrs((y[e, i, t, d] == 0 for e in E for i in P for t in T for d in T if t != (d + b[e])), name="c12")
+
+
+''' Función Objetivo '''
+# modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(v[i, t] * n[i, t] for i in P for t in T) + quicksum(c[e, i, j] * z[e, i, j, t, d] for e in E for i in P for j in P2 for t in T for d in T2) + quicksum(w[e, i, t] * f[e, i] for e in E for t in T for i in P), GRB.MINIMIZE)
+modelo.setObjective(quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in range(1, len(T)) for d in T), GRB.MINIMIZE)
+
 
 ''' Solucion '''
 modelo.optimize()
