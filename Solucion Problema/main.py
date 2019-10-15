@@ -12,7 +12,7 @@ modelo = Model()
 # M = 21
 # Tb es el límite superior de T
 # Tb = 14
-parametros = "Parametros_2"
+parametros = "Parametros"
 URL_C = f"{parametros}/C.csv"
 URL_B_U_M = f"{parametros}/B,U,M.csv"
 URL_D_H_L = f"{parametros}/D,H,L.csv"
@@ -28,7 +28,8 @@ Pb = 2
 P = tuple(i for i in range(1, Pb + 1))
 P2 = P
 # Periodos
-Tb = 4
+# (Tb = Horizonte maximo)
+Tb = 14
 T = tuple(i for i in range(0, Tb + 1))
 T2 = T
 # T0 = tuple(i for i in range(0, Tb + 1))
@@ -119,6 +120,8 @@ with open(URL_Q, "r") as f:
     for i in P:
         if i not in q.keys():
                 q[i] = 0
+    M = max(q.values()) + 2 # El + 2 es por si acaso
+
 # Binario. 1 si y solo si la pieza i ∈ P es apta para recibir pacientes
 # con la patología e ∈ E. 0 E.O.C.
 with open(URL_F, "r") as f:
@@ -258,7 +261,7 @@ modelo.addConstrs((quicksum(k[e, i, t] for i in P) <= d[e, t] for e in E for t i
 ''' Función Objetivo '''
 # modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(v[i, t] * n[i, t] for i in P for t in T) + quicksum(c[e, i, j] * z[e, i, j, t, d] for e in E for i in P for j in P2 for t in T for d in T2) + quicksum(w[e, i, t] * f[e, i] for e in E for t in T for i in P), GRB.MINIMIZE)
 # modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in range(1, len(T)) for d in T), GRB.MINIMIZE)
-modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P), GRB.MINIMIZE)
+modelo.setObjective(quicksum(l[e, t] * (d[e, t] - k[e, i , t]) for e in E for t in T for i in P) + quicksum(x[e, i, t, d] * f[e, i] for i in P for e in E for t in range(1, Tb + 1) for d in range(1, Tb + 1)), GRB.MINIMIZE)
 
 ''' Solucion '''
 modelo.optimize()
